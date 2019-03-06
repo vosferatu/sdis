@@ -361,6 +361,8 @@ A proficient **concurrent** implementation of the subprotocols (without enhancem
 | Delete	| 5% |
 | Space Reclaim	| 15% |
 
+To achieve concurrency, you should use multiple threads. (Java NIO will be required only for the second project.) [Please check these hints for concurrency design of the PUTCHUNK protocol](https://web.fe.up.pt/~pfs/aulas/sd2019/projs/proj1/concurrency_hints.html). The description of your concurrency design on the project's final report, is worth up to 5% of your final grade.
+
 By implementing each of the 3 suggested enhancements, you will get an additional 5%. (Thus, you will get an additional 15%, if you implement all enhancements.) Please note that your enhanced subprotocols should interoperate with non-enhanced subprotocols, therefore you must be very careful in the design of these enhancements.(Read the appendix on interoperability for some suggestions.)
 
 The remaining 10% are assigned as follows: 5% for the use of RMI in the client/server protocol and 5% for demo setup.
