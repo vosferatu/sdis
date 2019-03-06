@@ -1,7 +1,6 @@
-https://web.fe.up.pt/~pfs/aulas/sd2018/projs/proj1/proj1.html
+https://web.fe.up.pt/~pfs/aulas/sd2019/projs/proj1/proj1.html
 
-
-# Project 1 -- Distributed Backup Service
+# Project 1 - Distributed Backup Service
 
 ## 1. Introduction
 
@@ -11,7 +10,7 @@ In this project you will develop a distributed backup service for a local area n
 
 The assumptions made regarding the environment and the system are essential when designing a distributed application. In this section, we try to make explicit all the assumptions that you can make, when devising your solution. Some assumptions stem from the environment in which the service is expected to operate on and are easy to understand. Other assumptions are not very realistic, but they are made to simplify your solution or its test.
 
-We assume that the system is composed of a set of computers interconnected by a local area network. The service is provided by a set of servers, **possibly more than one per computer**, that cooperate to provide the backup service. A server manages local disk storage where it may store files, or parts thereof, and is identified by an integer, which is assumed to be unique and that never changes.
+We assume that the system is composed of a set of computers interconnected by a local area network. The service is provided by a set of servers, **possibly more than one per computer**, that cooperate to provide the backup service. **Each server is identified by an integer**, which is assumed to be unique and that never changes, and manages local disk storage where it may store files, or parts thereof.
 
 We assume that the network may loose or duplicate messages, but that network failures are transient. I.e., if the sender keeps retransmitting a message, it will eventually reach its destination.
 
@@ -226,7 +225,7 @@ The peers must also provide an interface to allow a testing client to:
     The client shall specify the file pathname and the desired replication degree.
     
 **Restore a file**  
-    The client shall specify file to restore is specified by the its pathname. 
+    The client shall specify file to restore by its pathname. 
      
 **Delete a file**  
     The client shall specify file to delete by its pathname. 
@@ -335,9 +334,9 @@ The suggested order for developing the subprotocols is: backup, delete, restore 
 
 ### 7.2 What and how to submit?
 
-You must submit all the source code files via the SVN repository of the Redmine project that you must create for SDIS in https://redmine.fe.up.pt Your project **id** shall be named **sdis1718-t\<n\>g\<p\>\<q\>**, where **\<n\>** is the number of your section (turma) and **\<p\>\<q\>** are two digits with the number of your group, e.g. sdis1718-t3g06. In addition to the source code files, you should submit a plain ASCII file named README with instructions for compiling and running your application.
+You must submit all the source code files via the SVN repository of the Redmine project that you must create for SDIS in https://redmine.fe.up.pt Your project **id** shall be named **sdis1819-t\<n\>g\<p\>\<q\>**, where **\<n\>** is the number of your section (turma) and **\<p\>\<q\>** are two digits with the number of your group, e.g. sdis1718-t3g06. In addition to the source code files, you should submit a plain ASCII file named README with instructions for compiling and running your application.
 
-Furthermore, if you implement any enhancement to the peers protocol specified in _Section 3_ or **if your implementation supports the concurrent execution of protocols**, you should submit via SVN also a report, a PDF file named protocol.pdf.
+Furthermore, if you implement any enhancement to the peers protocol specified in _Section 3_ or **if your implementation supports the concurrent execution of protocols**, you should submit via SVN also a report, a PDF file named _report.pdf_.
 
 The report should include the specification of each enhancement you implement and explain its rationale in at most one page (per enhancement). **If your implementation supports the concurrent execution of instances of the protocols defined in Section 3, you should describe your concurrency design in the report and refer to your code to explain how you implemented that design. (This description alone is worth up to 5%, and may take two or three pages, as necessary).**
 
@@ -353,7 +352,7 @@ Finally, note that in the demo you will have to use the lab PCs. So to avoid loo
 
 We will test your implementation also with that of other groups, and possibly our own, to ensure that the protocols are implemented in an interoperable way. Therefore, we urge you to test your project with those of other groups as your development progresses, rather than leaving interoperability testing to the very end of project development.
 
-A proficient **concurrent** implementation of the subprotocols (without enhancements) is worth a project grade of 70%, as shown in the following table. To achieve concurrency, you can use either multiple threads or Java NIO.
+A proficient **concurrent** implementation of the subprotocols (without enhancements) is worth a project grade of 70%, as shown in the following table.
 
 | Subprotocol	| Weight |
 |:----------:|:--------:|
@@ -362,7 +361,7 @@ A proficient **concurrent** implementation of the subprotocols (without enhancem
 | Delete	| 5% |
 | Space Reclaim	| 15% |
 
-By implementing each of the 4 suggested enhancements, you will get an additional 5%. (Thus, you will get an additional 20%, if you implement all enhancements.) Please note that your enhanced subprotocols should interoperate with non-enhanced subprotocols, therefore you must be very careful in the design of these enhancements.(Read the appendix on interoperability for some suggestions.)
+By implementing each of the 3 suggested enhancements, you will get an additional 5%. (Thus, you will get an additional 15%, if you implement all enhancements.) Please note that your enhanced subprotocols should interoperate with non-enhanced subprotocols, therefore you must be very careful in the design of these enhancements.(Read the appendix on interoperability for some suggestions.)
 
 The remaining 10% are assigned as follows: 5% for the use of RMI in the client/server protocol and 5% for demo setup.
 
@@ -397,4 +396,4 @@ This can be done rather early in your development and without much effort. You c
 * nao implementar tudo de uma vez (serviços, comunicacoes, processamento pedidos, operacoes sem concorrencia (single-thread) e no fim paralelizar as coisas. **seguir estratégia recomendada**
 * prox aula rmi
  
- 
+ To achieve concurrency, you can use either multiple threads or Java NIO.
