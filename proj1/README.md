@@ -1,6 +1,6 @@
 https://web.fe.up.pt/~pfs/aulas/sd2019/projs/proj1/proj1.html
 
-# Project 1 - Distributed Backup Service
+# Project 1 - Distributed Backup Service - Group 6
 
 ## 1. Introduction
 
