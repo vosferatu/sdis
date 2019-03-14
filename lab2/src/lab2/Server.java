@@ -17,8 +17,10 @@ public class Server {
 			System.exit(1);
 		}
 		
-		//Check for errors
+		/* Port where the server receives requests and sends replies */
 		int port_number = Integer.parseInt(args[0]);
+		
+		/* Multicast group where the server makes the advertisement */
 		String mcast_address = args[1];
 		int mcast_port = Integer.parseInt(args[2]);
 		
