@@ -25,19 +25,19 @@ public class TestApp {
     		switch(operation_arg) {
     			case "BACKUP":
     				/* filename = args[3] | replication_degree = args[4] */
-    				stub.backup(args[3], Integer.parseInt(args[4]));
+    				stub.backup(args[2], Integer.parseInt(args[3]));
     				break;
     			case "RESTORE":
     				/* filename = args[3] */
-    				stub.restore(args[3]);
+    				stub.restore(args[2]);
     				break;
     			case "DELETE":
     				/* filename = args[3] */
-    				stub.delete(args[3]);
+    				stub.delete(args[2]);
     				break;
     			case "RECLAIM":
     				/* available_space = args[3] */
-    				stub.reclaim(Integer.parseInt(args[3]));
+    				stub.reclaim(Integer.parseInt(args[2]));
     				break;
     			case "STATE":
     				stub.state();

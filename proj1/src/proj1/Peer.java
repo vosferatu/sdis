@@ -30,7 +30,7 @@ public class Peer implements OpMethods {
 
 		/* TODO: Delete - To be done by command line */
 		if(dev.equals(Debugger.BRUNO)) {
-			codebase = "file:///C:/Users/bmsp2/Documents/GitHub/proj1/proj1/bin";
+			codebase = "file:///C:/Users/bmsp2/Documents/GitHub/sdis/proj1/bin";
 		}
 		else {
 			codebase = "file:///home/vosferatu/eclipse-workspace/sdis3/bin/";
@@ -80,13 +80,71 @@ public class Peer implements OpMethods {
 
 	}
 
-	public void backup(String filename, int replication_degree) {};
+	public void backup(String filename, int replication_degree) {
+		/*
+		 * send to the MDB multicast data channel
+		 * PUTCHUNK <Version> <SenderId> <FileId> <ChunkNo> <ReplicationDeg> <CRLF><CRLF> <Body>
+		 * TODO: Decide on FileId generator bit string 
+		 */
+		
+		/*
+		 * receives on multicast control channel (MC) a confirmation message after a random delay uniformly distributed between 0 and 400 ms
+		 * STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
+		 */
+		
+		System.out.println("BACKUP");
+	};
 
-	public void restore(String filename) {};
+	public void restore(String filename) {
+		/*
+		 * send to the MDB multicast data channel
+		 * GETCHUNK <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
+		 */
+		
+		/*
+		 * receives via the MDR channel after a random delay uniformly distributed between 0 and 400 ms
+		 * CHUNK <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF><Body>
+		 */
+		
+		System.out.println("RESTORE");
+	};
 
-	public void delete(String filename) {};
+	public void delete(String filename) {
+		/*
+		 * send to the MC multicast control channel
+		 * DELETE <Version> <SenderId> <FileId> <CRLF><CRLF>
+		 */
+		
+		System.out.println("DELETE");
+	};
 
-	public void reclaim(int available_space) {};
+	public void reclaim(int available_space) {
+		/*
+		 * send to the MC multicast control channel
+		 * REMOVED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
+		 */
+		
+		System.out.println("RECLAIM");
+	};
 
-	public void state() {};
+	public void state() {
+		/*
+			This operation allows to observe the service state. In response to such a request, the peer shall send to the client the following information:
+	
+		    For each file whose backup it has initiated:
+		        The file pathname
+		        The backup service id of the file
+		        The desired replication degree
+		        For each chunk of the file:
+		            Its id
+		            Its perceived replication degree
+		    For each chunk it stores:
+		        Its id
+		        Its size (in KBytes)
+		        Its perceived replication degree
+		    The peer's storage capacity, i.e. the maximum amount of disk space that can be used to store chunks, and the amount of storage (both in KBytes) used to backup the chunks.
+		*/
+		
+		System.out.println("STATE");
+	};
 }
