@@ -7,6 +7,10 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
 public class Server implements Register {
+	/* TODO: DEBUG: Delete */
+	private static enum Debugger {JOAO, BRUNO};
+	static Debugger dev = Debugger.BRUNO;
+	/*				*/
 	
 	public Server() {}
 
@@ -19,7 +23,16 @@ public class Server implements Register {
 			System.exit(1);
 		}
 		
-		String codebase = "file:///home/vosferatu/eclipse-workspace/sdis3/bin/";
+		String codebase;
+
+		/* TODO: Delete - To be done by command line */
+		if(dev.equals(Debugger.BRUNO)) {
+			codebase = "file:///C:/Users/bmsp2/Documents/GitHub/sdis/sdis3/bin";
+		}
+		else {
+			codebase = "file:///home/vosferatu/eclipse-workspace/sdis3/bin/";
+		}
+		/*				*/
 		System.setProperty("java.rmi.server.codebase",codebase);
 
 		//Check for errors
