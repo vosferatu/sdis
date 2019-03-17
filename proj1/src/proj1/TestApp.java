@@ -5,6 +5,9 @@ import java.rmi.NotBoundException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
+/*
+ * Class for the Testing Client Application
+ */
 public class TestApp {
 
     private TestApp() {}

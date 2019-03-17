@@ -1,9 +1,11 @@
 package proj1;
 
 import java.io.*;
+import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -20,6 +22,16 @@ public class Peer implements OpMethods {
 	
 	private static String server_id;
 	private static String protocol_version;
+
+	static int mc_port;
+	static InetAddress mc_inet;
+	static MulticastSocket mc_mcast;
+	static int mdb_port;
+	static InetAddress mdb_inet;
+	static MulticastSocket mdb_mcast;
+	static int mdr_port;
+	static InetAddress mdr_inet;
+	static MulticastSocket mdr_mcast;
 	
 	public Peer() {}
 
@@ -51,19 +63,19 @@ public class Peer implements OpMethods {
 		
 		try {
 			String mc_ip = args[3];
-			int mc_port = Integer.parseInt(args[4]);
-			InetAddress mc_inet = InetAddress.getByName(mc_ip);
-			MulticastSocket mc_mcast = new MulticastSocket(mc_port);
+			mc_port = Integer.parseInt(args[4]);
+			mc_inet = InetAddress.getByName(mc_ip);
+			mc_mcast = new MulticastSocket(mc_port);
 
 			String mdb_ip = args[5];
-			int mdb_port = Integer.parseInt(args[6]);
-			InetAddress mdb_inet = InetAddress.getByName(mdb_ip);
-			MulticastSocket mdb_mcast = new MulticastSocket(mdb_port);
+			mdb_port = Integer.parseInt(args[6]);
+			mdb_inet = InetAddress.getByName(mdb_ip);
+			mdb_mcast = new MulticastSocket(mdb_port);
 
 			String mdr_ip = args[7];
-			int mdr_port = Integer.parseInt(args[8]);
-			InetAddress mdr_inet = InetAddress.getByName(mdr_ip);
-			MulticastSocket mdr_mcast = new MulticastSocket(mdr_port);
+			mdr_port = Integer.parseInt(args[8]);
+			mdr_inet = InetAddress.getByName(mdr_ip);
+			mdr_mcast = new MulticastSocket(mdr_port);
 			
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
@@ -81,7 +93,6 @@ public class Peer implements OpMethods {
             System.err.println("Server ready");
         } catch (Exception e) {
             System.err.println("Server exception: " + e.toString());
-            e.printStackTrace();
             System.exit(1);
         }
 
@@ -91,7 +102,6 @@ public class Peer implements OpMethods {
 		/*
 		 * send to the MDB multicast data backup channel
 		 * PUTCHUNK <Version> <SenderId> <FileId> <ChunkNo> <ReplicationDeg> <CRLF><CRLF><Body>
-		 * TODO: Decide on FileId generator bit string 
 		 */
 		
 		File file = new File(filepath);
@@ -109,18 +119,43 @@ public class Peer implements OpMethods {
 			fileId = hash.toString();
 		} catch (NoSuchAlgorithmException e) {
 			System.err.println("Error getting the file path hash!");
-			e.printStackTrace();
 			System.exit(1);
 		}
 		
+		/* TODO: Get confirmation that this is the best approach */
+		try {
+			ArrayList<byte[]> chunks = new ArrayList<byte[]>();
+			FileInputStream sourceStream = new FileInputStream(file);
+			byte[] buf = new byte[64000];									// Is this 64kbyte?
+			
+			while (sourceStream.read(buf) > 0) {
+				chunks.add(buf);
+			}
+			
+			sourceStream.close();
+		} catch (IOException e) {
+			System.err.println("Error on splitting file to backup!");
+			System.exit(1);
+		}
+		
+		/* ---------------------------------------------------- */
+		
 		/* 
-		 * TODO:	-	Split file and replace CHUNK_NO on messageHeader and build messageBody
-		 * 			-	Send message to MDB
+		 * TODO:	-	Split file and replace CHUNK_NO on messageHeader and build messageBody (To be sent on threads?)
 		 * 			-	Listen to the MC channel for confirmation messages
 		 */
 		
 		String messageHeader = "PUTCHUNK " + protocol_version + " " + server_id + " " + fileId + " CHUNK_NO " + replication_degree + " \r\n\r\n";
 		System.out.println("PUTCHUNK message header : " + messageHeader );
+		
+		try {
+			byte[] message_bytes = messageHeader.getBytes();
+			DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
+			mdb_mcast.send(packet);
+		} catch (IOException e) {
+			System.err.println("Error on sending packet to MDB!");
+			System.exit(1);
+		}
 		
 		/* ------------------------------- */
 		
