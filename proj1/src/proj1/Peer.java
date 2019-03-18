@@ -66,20 +66,22 @@ public class Peer implements OpMethods {
 			mc_port = Integer.parseInt(args[4]);
 			mc_inet = InetAddress.getByName(mc_ip);
 			mc_mcast = new MulticastSocket(mc_port);
+			mc_mcast.joinGroup(mc_inet);
 
 			String mdb_ip = args[5];
 			mdb_port = Integer.parseInt(args[6]);
 			mdb_inet = InetAddress.getByName(mdb_ip);
 			mdb_mcast = new MulticastSocket(mdb_port);
+			mdb_mcast.joinGroup(mdb_inet);
 
 			String mdr_ip = args[7];
 			mdr_port = Integer.parseInt(args[8]);
 			mdr_inet = InetAddress.getByName(mdr_ip);
 			mdr_mcast = new MulticastSocket(mdr_port);
-
+			mdr_mcast.joinGroup(mdr_inet);
 		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+			System.err.println("Error on creating/joining multicast sockets!");
+			System.exit(1);
 		}
 
 		try {
