@@ -29,7 +29,7 @@ public class TestApp {
     			case "BACKUP":
     				/* filepath = args[2] | repDeg = args[3] */
     				if(args[3].matches("-?(0|[1-9]\\d*)")) {
-    					stub.backup(args[2], args[3]);
+    					stub.backup(args[2], Integer.parseInt(args[3]));
     				}
     				else {
     					System.err.println("Argument passed as replication degree is not an integer!");

@@ -37,6 +37,7 @@ public class Peer implements OpMethods {
 	static int mdr_port;
 	static InetAddress mdr_inet;
 	static MulticastSocket mdr_mcast;
+	
 	/*
 	 * Records information about the chunks it stores
 	 */
@@ -102,8 +103,6 @@ public class Peer implements OpMethods {
 				mdb_mcast.receive(message);
 				
 				String message_str = new String(message.getData(), 0, message.getLength());
-				
-				System.out.println(message_str + " received on MDB!");
 
 				/* 
 				 * - Is it necessary to know who the protocol version?
@@ -121,7 +120,7 @@ public class Peer implements OpMethods {
 					System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + ">");
 					
 					// STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
-					String response = "STORED " + pt_vers + " " + sender_id + " " + fileId + " " + chunkNo + "\r\n\r\n";
+					String response = "STORED " + pt_vers + " " + server_id + " " + fileId + " " + chunkNo + "\r\n\r\n";
 					
 					byte[] response_bytes = response.getBytes();
 					DatagramPacket packet = new DatagramPacket(response_bytes, response_bytes.length, mc_inet, mc_port);
@@ -140,7 +139,14 @@ public class Peer implements OpMethods {
 				
 				String message_str = new String(message.getData(), 0, message.getLength());
 				
-				System.out.println(message_str + " received on MC!");
+				String[] msg_args = message_str.split(" ");
+				String type = msg_args[0];
+				if(type.equals("STORED")) {
+					String sender_id = msg_args[2];
+					if(!sender_id.equals(server_id)) {
+						System.out.println(message_str + " received on MC!");
+					}
+				}
 		    	
 		    }
 		});
@@ -165,7 +171,7 @@ public class Peer implements OpMethods {
 
 	}
 
-	public void backup(String filepath, String repDeg) {
+	public void backup(String filepath, int repDeg) {
 		/*
 		 * send to the MDB multicast data backup channel
 		 * PUTCHUNK <Version> <SenderId> <FileId> <ChunkNo> <ReplicationDeg> <CRLF><CRLF><Body>
@@ -226,8 +232,39 @@ public class Peer implements OpMethods {
 				System.exit(1);
 			}
 			
-			fileChunkList.put(fileId + "_" + chunkNo, repDeg);
-			System.out.println("PUTCHUNK -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + ">");
+			//The real replication degree starts counting at 1 since the Peer will not read its own STORED message
+			fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_1");
+			System.out.println("PUTCHUNK -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_1>");
+			
+			/*byte[] message_bytes = new byte[MAX_SIZE];
+        	int stored_msgs = 0;
+        	int time_elapsed = 0;
+        	int time_max = 1;
+			
+			DatagramPacket message = new DatagramPacket(message_bytes, message_bytes.length);
+			try {
+				mc_mcast.receive(message);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			stored_msgs++;
+			
+			if(stored_msgs == repDeg) {
+				timer.cancel();
+			}
+			else {
+				time_elapsed++;
+				if(time_elapsed == time_max) {
+					if(time_max == 16) {
+						timer.cancel();
+					}
+					else {
+						time_max *= 2;
+						stored_msgs = 0;
+					}
+				}*/
 		}
 		
 		//TODO: Wait for the desired replication degree confirmation messages
