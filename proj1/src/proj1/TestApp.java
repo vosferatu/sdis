@@ -27,8 +27,14 @@ public class TestApp {
     		
     		switch(operation_arg) {
     			case "BACKUP":
-    				/* filename = args[3] | replication_degree = args[4] */
-    				stub.backup(args[2], Integer.parseInt(args[3]));
+    				/* filepath = args[2] | repDeg = args[3] */
+    				if(args[3].matches("-?(0|[1-9]\\d*)")) {
+    					stub.backup(args[2], args[3]);
+    				}
+    				else {
+    					System.err.println("Argument passed as replication degree is not an integer!");
+    					System.exit(1);
+    				}
     				break;
     			case "RESTORE":
     				/* filename = args[3] */

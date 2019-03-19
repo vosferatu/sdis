@@ -12,7 +12,7 @@ public interface OpMethods extends Remote {
 	 * @param filepath Path of the file to backup
 	 * @param replication_degree Desired replication degree
 	 */
-	void backup(String filepath, int replication_degree) throws RemoteException;
+	void backup(String filepath, String repDeg) throws RemoteException;
 
 	void restore(String filename) throws RemoteException;
 

@@ -6,7 +6,11 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.RemoteException;
@@ -17,11 +21,12 @@ import java.security.NoSuchAlgorithmException;
 public class Peer implements OpMethods {
 	/* TODO: DEBUG: Delete */
 	private static enum Debugger {JOAO, BRUNO};
-	static Debugger dev = Debugger.JOAO;
+	static Debugger dev = Debugger.BRUNO;
 	/*				*/
 
 	private static String server_id;
 	private static String protocol_version;
+	private static final int MAX_SIZE = 64000;
 
 	static int mc_port;
 	static InetAddress mc_inet;
@@ -32,6 +37,10 @@ public class Peer implements OpMethods {
 	static int mdr_port;
 	static InetAddress mdr_inet;
 	static MulticastSocket mdr_mcast;
+	/*
+	 * Records information about the chunks it stores
+	 */
+	static ConcurrentHashMap<String, String> fileChunkList = new ConcurrentHashMap<String, String>();
 
 	public Peer() {}
 
@@ -48,7 +57,7 @@ public class Peer implements OpMethods {
 
 		/* TODO: Delete - To be done by command line */
 		if(dev.equals(Debugger.BRUNO)) {
-			codebase = "file:///C:/Users/bmsp2/Documents/GitHub/sdis/proj1/bin";
+			codebase = "file:///C:/Users/bmsp2/Documents/GitHub/sdis/proj1/bin/";
 		}
 		else {
 			codebase = "file:///home/vosferatu/Desktop/sdis/proj1/bin/";
@@ -83,6 +92,62 @@ public class Peer implements OpMethods {
 			System.err.println("Error on creating/joining multicast sockets!");
 			System.exit(1);
 		}
+		
+		ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3);
+		executor.submit(() -> {
+		    while(true) {
+		    	byte[] message_bytes = new byte[MAX_SIZE];
+				
+				DatagramPacket message = new DatagramPacket(message_bytes, message_bytes.length);
+				mdb_mcast.receive(message);
+				
+				String message_str = new String(message.getData(), 0, message.getLength());
+				
+				System.out.println(message_str + " received on MDB!");
+
+				/* 
+				 * - Is it necessary to know who the protocol version?
+				 */
+				String[] msg_args = message_str.split(" ");
+				String pt_vers = msg_args[1];
+				String sender_id = msg_args[2];
+				if(!sender_id.equals(server_id)) {
+					String fileId = msg_args[3];
+					String chunkNo = msg_args[4];
+					String repDeg = msg_args[5];
+					
+					//TODO: After listening to the confirmation messages on MC, it shall sum it to the repDeg (like "repDeg_realRepDeg")
+					fileChunkList.put(fileId + "_" + chunkNo, repDeg);
+					System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + ">");
+					
+					// STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
+					String response = "STORED " + pt_vers + " " + sender_id + " " + fileId + " " + chunkNo + "\r\n\r\n";
+					
+					byte[] response_bytes = response.getBytes();
+					DatagramPacket packet = new DatagramPacket(response_bytes, response_bytes.length, mc_inet, mc_port);
+					
+					Thread.sleep((long) (Math.random() * 400));
+					mc_mcast.send(packet);
+				}
+		    }
+		});
+		executor.submit(() -> {
+		    while(true) {
+		    	byte[] message_bytes = new byte[MAX_SIZE];
+				
+				DatagramPacket message = new DatagramPacket(message_bytes, message_bytes.length);
+				mc_mcast.receive(message);
+				
+				String message_str = new String(message.getData(), 0, message.getLength());
+				
+				System.out.println(message_str + " received on MC!");
+		    	
+		    }
+		});
+		executor.submit(() -> {
+		    Thread.sleep(1000);
+		    return null;
+		});
 
 		try {
             Peer obj = new Peer();
@@ -100,7 +165,7 @@ public class Peer implements OpMethods {
 
 	}
 
-	public void backup(String filepath, int replication_degree) {
+	public void backup(String filepath, String repDeg) {
 		/*
 		 * send to the MDB multicast data backup channel
 		 * PUTCHUNK <Version> <SenderId> <FileId> <ChunkNo> <ReplicationDeg> <CRLF><CRLF><Body>
@@ -125,13 +190,14 @@ public class Peer implements OpMethods {
 		}
 
 		/* TODO: Get confirmation that this is the best approach */
+		ArrayList<byte[]> chunks = new ArrayList<byte[]>();
 		try {
-			ArrayList<byte[]> chunks = new ArrayList<byte[]>();
 			FileInputStream sourceStream = new FileInputStream(file);
-			byte[] buf = new byte[64000];									// Is this 64kbyte?
-
-			while (sourceStream.read(buf) > 0) {
-				chunks.add(buf);
+			byte[] buf = new byte[MAX_SIZE];
+			int read;
+			
+			while ((read = sourceStream.read(buf)) > 0) {
+				chunks.add(Arrays.copyOf(buf, read));
 			}
 
 			sourceStream.close();
@@ -147,17 +213,24 @@ public class Peer implements OpMethods {
 		 * 			-	Listen to the MC channel for confirmation messages
 		 */
 
-		String messageHeader = "PUTCHUNK " + protocol_version + " " + server_id + " " + fileId + " CHUNK_NO " + replication_degree + " \r\n\r\n";
-		System.out.println("PUTCHUNK message header : " + messageHeader );
-
-		try {
-			byte[] message_bytes = messageHeader.getBytes();
-			DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
-			mdb_mcast.send(packet);
-		} catch (IOException e) {
-			System.err.println("Error on sending packet to MDB!");
-			System.exit(1);
+		
+		for(int chunkNo = 0; chunkNo < chunks.size(); chunkNo++){
+			String messageHeader = "PUTCHUNK " + protocol_version + " " + server_id + " " + fileId + " " + chunkNo + " " + repDeg + " " + chunks.get(chunkNo).length + " \r\n\r\n";
+			
+			try {
+				byte[] message_bytes = messageHeader.getBytes();
+				DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
+				mdb_mcast.send(packet);
+			} catch (IOException e) {
+				System.err.println("Error on sending packet to MDB!");
+				System.exit(1);
+			}
+			
+			fileChunkList.put(fileId + "_" + chunkNo, repDeg);
+			System.out.println("PUTCHUNK -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + ">");
 		}
+		
+		//TODO: Wait for the desired replication degree confirmation messages
 
 		/* ------------------------------- */
 
@@ -261,7 +334,7 @@ public class Peer implements OpMethods {
 		 * STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
 		 */
 
-		String message = "STORED " + protocol_version + " " + server_id + " " + "FILENAME_FROM_MDB CHUNKNO_FROM_MDB\\r\\n\\r\\n";
+		String message = "STORED " + protocol_version + " " + server_id + " " + "FILENAME_FROM_MDB CHUNKNO_FROM_MDB\r\n\r\n";
 
 		//TODO: Send message to MC
 	}
