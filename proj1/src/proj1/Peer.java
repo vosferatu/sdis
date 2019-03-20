@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -37,6 +39,12 @@ public class Peer implements OpMethods {
 	static int mdr_port;
 	static InetAddress mdr_inet;
 	static MulticastSocket mdr_mcast;
+	
+	/*
+	 * Variables for STORED reception control
+	 */
+	int attemp_no = 0;
+	static int stored_msgs = 0;
 	
 	/*
 	 * Records information about the chunks it stores
@@ -144,7 +152,8 @@ public class Peer implements OpMethods {
 				if(type.equals("STORED")) {
 					String sender_id = msg_args[2];
 					if(!sender_id.equals(server_id)) {
-						System.out.println(message_str + " received on MC!");
+						stored_msgs++;
+						System.out.println(message_str + " received on MC! ");
 					}
 				}
 		    	
@@ -235,6 +244,39 @@ public class Peer implements OpMethods {
 			//The real replication degree starts counting at 1 since the Peer will not read its own STORED message
 			fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_1");
 			System.out.println("PUTCHUNK -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_1>");
+
+			while(attemp_no != 5) {
+				
+				try {
+					Thread.sleep((int) Math.pow(2, attemp_no) * 1000);
+					
+					if(stored_msgs == repDeg) {
+						fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_" + repDeg);
+						attemp_no = 0;
+						stored_msgs = 0;
+						break;
+					}
+					else {
+						attemp_no++;
+						System.out.println("Going to wait more " + (int) Math.pow(2, attemp_no) + " seconds...");
+						stored_msgs = 0;
+					}
+					
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			if(attemp_no == 5) {
+				fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_" + stored_msgs);
+				
+				attemp_no = 0;
+				stored_msgs = 0;
+				
+				System.out.println("Couldn't achieve the desired replication degree");
+				
+			}
 			
 			/*byte[] message_bytes = new byte[MAX_SIZE];
         	int stored_msgs = 0;
