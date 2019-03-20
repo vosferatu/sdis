@@ -133,6 +133,7 @@ public class Peer implements OpMethods {
 					byte[] response_bytes = response.getBytes();
 					DatagramPacket packet = new DatagramPacket(response_bytes, response_bytes.length, mc_inet, mc_port);
 					
+					/* random delay */
 					Thread.sleep((long) (Math.random() * 400));
 					mc_mcast.send(packet);
 				}
@@ -153,13 +154,14 @@ public class Peer implements OpMethods {
 					String sender_id = msg_args[2];
 					if(!sender_id.equals(server_id)) {
 						stored_msgs++;
-						System.out.println(message_str + " received on MC! ");
+						System.out.println("STORED received on MC!");
 					}
 				}
 		    	
 		    }
 		});
 		executor.submit(() -> {
+			/* MDR Thread */
 		    Thread.sleep(1000);
 		    return null;
 		});
@@ -194,7 +196,7 @@ public class Peer implements OpMethods {
 
 		String fileId = "";
 
-		// TODO: Think of a better bit string
+		/* Retrieves  a fileId from the hash of the given filepath */
 		try {
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
 			byte[] hash = digest.digest(filepath.getBytes(StandardCharsets.UTF_8));
@@ -204,7 +206,7 @@ public class Peer implements OpMethods {
 			System.exit(1);
 		}
 
-		/* TODO: Get confirmation that this is the best approach */
+		/* Splits the file in chunks */
 		ArrayList<byte[]> chunks = new ArrayList<byte[]>();
 		try {
 			FileInputStream sourceStream = new FileInputStream(file);
@@ -221,55 +223,46 @@ public class Peer implements OpMethods {
 			System.exit(1);
 		}
 
-		/* ---------------------------------------------------- */
-
 		/*
-		 * TODO:	-	Split file and replace CHUNK_NO on messageHeader and build messageBody (To be sent on threads?)
-		 * 			-	Listen to the MC channel for confirmation messages
+		 * TODO:	-	Append the actual chunk to the messageHeader (To be sent on threads?)
 		 */
 
 		
 		for(int chunkNo = 0; chunkNo < chunks.size(); chunkNo++){
 			String messageHeader = "PUTCHUNK " + protocol_version + " " + server_id + " " + fileId + " " + chunkNo + " " + repDeg + " " + chunks.get(chunkNo).length + " \r\n\r\n";
-			
-			try {
-				byte[] message_bytes = messageHeader.getBytes();
-				DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
-				mdb_mcast.send(packet);
-			} catch (IOException e) {
-				System.err.println("Error on sending packet to MDB!");
-				System.exit(1);
-			}
-			
-			//The real replication degree starts counting at 1 since the Peer will not read its own STORED message
-			fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_1");
-			System.out.println("PUTCHUNK -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_1>");
-
+			byte[] message_bytes = messageHeader.getBytes();
+			DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
+		
 			while(attemp_no != 5) {
-				
 				try {
+					stored_msgs = 0;
+					mdb_mcast.send(packet);
+					System.out.println("Going to wait " + (int) Math.pow(2, attemp_no) + " seconds...");
 					Thread.sleep((int) Math.pow(2, attemp_no) * 1000);
 					
 					if(stored_msgs == repDeg) {
 						fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_" + repDeg);
+						System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_" + repDeg + ">");
 						attemp_no = 0;
 						stored_msgs = 0;
 						break;
 					}
 					else {
 						attemp_no++;
-						System.out.println("Going to wait more " + (int) Math.pow(2, attemp_no) + " seconds...");
-						stored_msgs = 0;
 					}
 					
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
+					System.out.println("Error on waiting for STORED messages reception!");
+					e.printStackTrace();
+				} catch (IOException e) {
+					System.out.println("Error on sending packet to MDB!");
 					e.printStackTrace();
 				}
 			}
 			
 			if(attemp_no == 5) {
 				fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_" + stored_msgs);
+				System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_" + stored_msgs + ">");
 				
 				attemp_no = 0;
 				stored_msgs = 0;
@@ -277,48 +270,9 @@ public class Peer implements OpMethods {
 				System.out.println("Couldn't achieve the desired replication degree");
 				
 			}
-			
-			/*byte[] message_bytes = new byte[MAX_SIZE];
-        	int stored_msgs = 0;
-        	int time_elapsed = 0;
-        	int time_max = 1;
-			
-			DatagramPacket message = new DatagramPacket(message_bytes, message_bytes.length);
-			try {
-				mc_mcast.receive(message);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-			stored_msgs++;
-			
-			if(stored_msgs == repDeg) {
-				timer.cancel();
-			}
-			else {
-				time_elapsed++;
-				if(time_elapsed == time_max) {
-					if(time_max == 16) {
-						timer.cancel();
-					}
-					else {
-						time_max *= 2;
-						stored_msgs = 0;
-					}
-				}*/
 		}
-		
-		//TODO: Wait for the desired replication degree confirmation messages
 
 		/* ------------------------------- */
-
-		/*
-		 * receives on multicast control channel (MC) a confirmation message after a random delay uniformly distributed between 0 and 400 ms
-		 * STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
-		 */
-
-		System.out.println("BACKUP");
 	};
 
 	public void restore(String filename) {
