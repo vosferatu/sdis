@@ -157,12 +157,44 @@ public class Peer implements OpMethods {
 						System.out.println("STORED received on MC!");
 					}
 				}
+				else {
+					if(type.equals("GETCHUNK")) {
+						String sender_id = msg_args[2];
+						if(!sender_id.equals(server_id)) {
+							String file_id = msg_args[3];
+							String chunk_no = msg_args[4];
+							
+							String value = fileChunkList.get(file_id + "_" + chunk_no);
+							
+							if(value != null) {	//peer has a copy of that chunk
+								/* Send it to MDR */
+								String response = "CHUNK " + protocol_version + " " + server_id + " " + file_id + " " + chunk_no + " /r/n/r/n";
+								
+								//TODO: Attach body to the message
+								byte[] response_bytes = response.getBytes();
+								DatagramPacket packet = new DatagramPacket(response_bytes, response_bytes.length, mdr_inet, mdr_port);
+								
+								//TODO: If it receives a CHUNK message the time expires, it will not send the CHUNK message.
+								/* random delay */
+								Thread.sleep((long) (Math.random() * 400));
+								mdr_mcast.send(packet);
+							}
+						}
+					}
+				}
 		    	
 		    }
 		});
 		executor.submit(() -> {
 			/* MDR Thread */
-		    Thread.sleep(1000);
+	    	byte[] message_bytes = new byte[MAX_SIZE];
+			
+			DatagramPacket message = new DatagramPacket(message_bytes, message_bytes.length);
+			mc_mcast.receive(message);
+			
+			String message_str = new String(message.getData(), 0, message.getLength());
+			
+			/* Process the message */
 		    return null;
 		});
 
