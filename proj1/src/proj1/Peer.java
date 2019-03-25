@@ -41,15 +41,9 @@ public class Peer implements OpMethods {
 	static MulticastSocket mdr_mcast;
 	
 	/*
-	 * Variables for STORED reception control
-	 */
-	int attemp_no = 0;
-	static int stored_msgs = 0;
-	
-	/*
 	 * Records information about the chunks it stores
 	 */
-	static ConcurrentHashMap<String, String> fileChunkList = new ConcurrentHashMap<String, String>();
+	static ConcurrentHashMap<String, String> file_chunk_list = new ConcurrentHashMap<String, String>();
 
 	public Peer() {}
 
@@ -126,7 +120,7 @@ public class Peer implements OpMethods {
 					
 					//TODO: After listening to the confirmation messages on MC, it shall sum it to the repDeg (like "repDeg_realRepDeg")
 					/* real replication degree starts at one */
-					fileChunkList.put(fileId + "_" + chunkNo, 'S' + "_" + size + "_" + repDeg + "_" + 1);
+					file_chunk_list.put(fileId + "_" + chunkNo, "S_" + size + "_" + repDeg + "_" + 1);
 					System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + 'S' + "_" + size + "_" + repDeg + "_" + 1 + ">");
 					
 					// STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
@@ -155,7 +149,8 @@ public class Peer implements OpMethods {
 				if(type.equals("STORED")) {
 					String sender_id = msg_args[2];
 					if(!sender_id.equals(server_id)) {
-						stored_msgs++;
+						String key = msg_args[3] + "_" + msg_args[4];
+						increaseStoredMessages(key);
 						System.out.println("STORED received on MC!");
 					}
 				}
@@ -166,7 +161,7 @@ public class Peer implements OpMethods {
 							String file_id = msg_args[3];
 							String chunk_no = msg_args[4];
 							
-							String value = fileChunkList.get(file_id + "_" + chunk_no);
+							String value = file_chunk_list.get(file_id + "_" + chunk_no);
 							
 							if(value != null) {	//peer has a copy of that chunk
 								/* Send it to MDR */
@@ -270,19 +265,26 @@ public class Peer implements OpMethods {
 			String messageHeader = "PUTCHUNK " + protocol_version + " " + server_id + " " + fileId + " " + chunkNo + " " + repDeg + " " + chunks.get(chunkNo).length + " \r\n\r\n";
 			byte[] message_bytes = messageHeader.getBytes();
 			DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
-		
+
+			int attemp_no = 0;
+			
+			String key = fileId + "_" + chunkNo;
+			
+			file_chunk_list.put(key, "B_" + filepath + "_" + repDeg + "_" + 0);
+			
 			while(attemp_no != 5) {
 				try {
-					stored_msgs = 0;
+					resetStoredMessages(key);
 					mdb_mcast.send(packet);
 					System.out.println("Going to wait " + (int) Math.pow(2, attemp_no) + " seconds...");
 					Thread.sleep((int) Math.pow(2, attemp_no) * 1000);
 					
+					int stored_msgs = getStoredMessages(key);
+					
 					if(stored_msgs == repDeg) {
-						fileChunkList.put(fileId + "_" + chunkNo, 'B' + "_" + filepath + "_" + repDeg + "_" + repDeg);
+						file_chunk_list.put(fileId + "_" + chunkNo, "B_" + filepath + "_" + repDeg + "_" + repDeg);
 						System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_" + repDeg + ">");
 						attemp_no = 0;
-						stored_msgs = 0;
 						break;
 					}
 					else {
@@ -298,12 +300,13 @@ public class Peer implements OpMethods {
 				}
 			}
 			
-			if(attemp_no == 5) {
-				fileChunkList.put(fileId + "_" + chunkNo,  'B' + "_" + filepath + "_" + repDeg + "_" + stored_msgs);
+			int stored_msgs = getStoredMessages(key);
+			
+			if(attemp_no == 5) {				
+				file_chunk_list.put(fileId + "_" + chunkNo,  "B_" + filepath + "_" + repDeg + "_" + stored_msgs);
 				System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + 'B' + "_" + filepath + "_" +  repDeg + "_" + stored_msgs + ">");
 				
 				attemp_no = 0;
-				stored_msgs = 0;
 				
 				System.out.println("Couldn't achieve the desired replication degree");
 				
@@ -436,5 +439,51 @@ public class Peer implements OpMethods {
 		 *
 		 * WHAT MORE?
 		 */
+	}
+
+	private static void increaseStoredMessages(String key) {
+		String value = file_chunk_list.get(key);
+		
+		String[] value_args = value.split("_");
+		
+		Integer real_replication_degree = Integer.parseInt(value_args[3]);
+		real_replication_degree++;
+		
+		String new_value = "";
+		
+		for (int arg_i = 0; arg_i < value_args.length - 1; arg_i++) {
+			new_value += value_args[arg_i] + "_";
+		}
+		
+		new_value += real_replication_degree;
+		
+		file_chunk_list.put(key, new_value);
+	}
+
+	private void resetStoredMessages(String key) {
+		String value = file_chunk_list.get(key);
+		
+		String[] value_args = value.split("_");
+		
+		Integer real_replication_degree = Integer.parseInt(value_args[3]);
+		real_replication_degree = 0;
+		
+		String new_value = "";
+		
+		for (int arg_i = 0; arg_i < value_args.length - 1; arg_i++) {
+			new_value += value_args[arg_i] + "_";
+		}
+		
+		new_value += real_replication_degree;
+		
+		file_chunk_list.put(key, new_value);
+	}
+
+	private int getStoredMessages(String key) {
+		String value = file_chunk_list.get(key);
+		
+		String[] value_args = value.split("_");
+		
+		return Integer.parseInt(value_args[3]);
 	}
 }
