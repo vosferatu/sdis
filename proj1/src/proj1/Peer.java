@@ -257,7 +257,9 @@ public class Peer implements OpMethods {
 			System.exit(1);
 		}
 		
-		//  If the file size is a multiple of the chunk size, the last chunk has size 0.
+		if(chunks.get(chunks.size()-1).length == MAX_SIZE) {
+			chunks.add(new byte[0]);
+		}
 
 		/*
 		 * TODO:	-	Append the actual chunk to the messageHeader (To be sent on threads?)
