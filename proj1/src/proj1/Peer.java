@@ -122,10 +122,12 @@ public class Peer implements OpMethods {
 					String fileId = msg_args[3];
 					String chunkNo = msg_args[4];
 					String repDeg = msg_args[5];
+					int size = 0; //TODO: Replace this by the real size
 					
 					//TODO: After listening to the confirmation messages on MC, it shall sum it to the repDeg (like "repDeg_realRepDeg")
-					fileChunkList.put(fileId + "_" + chunkNo, repDeg);
-					System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + ">");
+					/* real replication degree starts at one */
+					fileChunkList.put(fileId + "_" + chunkNo, 'S' + "_" + size + "_" + repDeg + "_" + 1);
+					System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + 'S' + "_" + size + "_" + repDeg + "_" + 1 + ">");
 					
 					// STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
 					String response = "STORED " + pt_vers + " " + server_id + " " + fileId + " " + chunkNo + "\r\n\r\n";
@@ -254,6 +256,8 @@ public class Peer implements OpMethods {
 			System.err.println("Error on splitting file to backup!");
 			System.exit(1);
 		}
+		
+		//  If the file size is a multiple of the chunk size, the last chunk has size 0.
 
 		/*
 		 * TODO:	-	Append the actual chunk to the messageHeader (To be sent on threads?)
@@ -273,7 +277,7 @@ public class Peer implements OpMethods {
 					Thread.sleep((int) Math.pow(2, attemp_no) * 1000);
 					
 					if(stored_msgs == repDeg) {
-						fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_" + repDeg);
+						fileChunkList.put(fileId + "_" + chunkNo, 'B' + "_" + filepath + "_" + repDeg + "_" + repDeg);
 						System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_" + repDeg + ">");
 						attemp_no = 0;
 						stored_msgs = 0;
@@ -293,8 +297,8 @@ public class Peer implements OpMethods {
 			}
 			
 			if(attemp_no == 5) {
-				fileChunkList.put(fileId + "_" + chunkNo, repDeg + "_" + stored_msgs);
-				System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_" + stored_msgs + ">");
+				fileChunkList.put(fileId + "_" + chunkNo,  'B' + "_" + filepath + "_" + repDeg + "_" + stored_msgs);
+				System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + 'B' + "_" + filepath + "_" +  repDeg + "_" + stored_msgs + ">");
 				
 				attemp_no = 0;
 				stored_msgs = 0;
