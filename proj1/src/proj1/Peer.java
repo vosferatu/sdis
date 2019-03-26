@@ -147,12 +147,8 @@ public class Peer implements OpMethods {
 				String[] msg_args = message_str.split(" ");
 				String type = msg_args[0];
 				if(type.equals("STORED")) {
-					String sender_id = msg_args[2];
-					if(!sender_id.equals(server_id)) {
-						String key = msg_args[3] + "_" + msg_args[4];
-						increaseStoredMessages(key);
-						System.out.println("STORED received on MC!");
-					}
+					String key = msg_args[3] + "_" + msg_args[4];
+					increaseStoredMessages(key);
 				}
 				else {
 					if(type.equals("GETCHUNK")) {
