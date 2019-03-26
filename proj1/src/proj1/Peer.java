@@ -358,34 +358,6 @@ public class Peer implements OpMethods {
 		//TODO: Send message to MC
 	}
 
-	public void listenToMDB() {
-		/*
-		 * TODO: This one must be a thread who's always listening to MDB and calls the store and sendChunk functions
-		 */
-	}
-
-	public void listenToMC() {
-		/*
-		 * TODO: This one must be a thread who's always listening to MC
-		 *
-		 * receives confirmation messages after a random delay uniformly distributed between 0 and 400 ms
-		 * STORED <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF>
-		 *
-		 * WHAT MORE?
-		 */
-	}
-
-	public void listenToMDR() {
-		/*
-		 * TODO: This one must be a thread who's always listening to MDR
-		 *
-		 * receives via the MDR channel after a random delay uniformly distributed between 0 and 400 ms
-		 * CHUNK <Version> <SenderId> <FileId> <ChunkNo> <CRLF><CRLF><Body>
-		 *
-		 * WHAT MORE?
-		 */
-	}
-
 	private void resetStoredMessages(String key) {
 		String value = file_chunk_list.get(key);
 
