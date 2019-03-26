@@ -41,7 +41,7 @@ public class Peer implements OpMethods {
 	static int mdr_port;
 	static InetAddress mdr_inet;
 	static MulticastSocket mdr_mcast;
-	
+
 	/*
 	 * Records information about the chunks it stores
 	 */
@@ -97,25 +97,25 @@ public class Peer implements OpMethods {
 			System.err.println("Error on creating/joining multicast sockets!");
 			System.exit(1);
 		}
-		
+
 		ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3);
 		executor.submit(new MulticastDataBackup());
 		executor.submit(new MulticastControl());
 		executor.submit(new MulticastDataRecovery());
 
 		try {
-            Peer obj = new Peer();
-            OpMethods stub = (OpMethods) UnicastRemoteObject.exportObject(obj, 0);
+			Peer obj = new Peer();
+			OpMethods stub = (OpMethods) UnicastRemoteObject.exportObject(obj, 0);
 
-            // Bind the remote object's stub in the registry
-            Registry registry = LocateRegistry.getRegistry();
-            registry.bind(access_point, stub);
+			// Bind the remote object's stub in the registry
+			Registry registry = LocateRegistry.getRegistry();
+			registry.bind(access_point, stub);
 
-            System.err.println("Server ready");
-        } catch (Exception e) {
-            System.err.println("Server exception: " + e.toString());
-            System.exit(1);
-        }
+			System.err.println("Server ready");
+		} catch (Exception e) {
+			System.err.println("Server exception: " + e.toString());
+			System.exit(1);
+		}
 
 	}
 
@@ -149,7 +149,7 @@ public class Peer implements OpMethods {
 			FileInputStream sourceStream = new FileInputStream(file);
 			byte[] buf = new byte[MAX_SIZE];
 			int read;
-			
+
 			while ((read = sourceStream.read(buf)) > 0) {
 				chunks.add(Arrays.copyOf(buf, read));
 			}
@@ -159,7 +159,7 @@ public class Peer implements OpMethods {
 			System.err.println("Error on splitting file to backup!");
 			System.exit(1);
 		}
-		
+
 		if(chunks.get(chunks.size()-1).length == MAX_SIZE) {
 			chunks.add(new byte[0]);
 		}
@@ -168,27 +168,27 @@ public class Peer implements OpMethods {
 		 * TODO: append the actual chunk to the messageHeader (To be sent on threads?)
 		 */
 
-		
+
 		for(int chunkNo = 0; chunkNo < chunks.size(); chunkNo++){
 			String messageHeader = "PUTCHUNK " + protocol_version + " " + server_id + " " + fileId + " " + chunkNo + " " + repDeg + " " + chunks.get(chunkNo).length + " \r\n\r\n";
 			byte[] message_bytes = messageHeader.getBytes();
 			DatagramPacket packet = new DatagramPacket(message_bytes, message_bytes.length, mdb_inet, mdb_port);
 
 			int attemp_no = 0;
-			
+
 			String key = fileId + "_" + chunkNo;
-			
+
 			file_chunk_list.put(key, "B_" + filepath + "_" + repDeg + "_" + 0);
-			
+
 			while(attemp_no != 5) {
 				try {
 					resetStoredMessages(key);
 					mdb_mcast.send(packet);
 					System.out.println("Going to wait " + (int) Math.pow(2, attemp_no) + " seconds...");
 					Thread.sleep((int) Math.pow(2, attemp_no) * 1000);
-					
+
 					int stored_msgs = getStoredMessages(key);
-					
+
 					if(stored_msgs == repDeg) {
 						file_chunk_list.put(fileId + "_" + chunkNo, "B_" + filepath + "_" + repDeg + "_" + repDeg);
 						System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + repDeg + "_" + repDeg + ">");
@@ -198,7 +198,7 @@ public class Peer implements OpMethods {
 					else {
 						attemp_no++;
 					}
-					
+
 				} catch (InterruptedException e) {
 					System.out.println("Error on waiting for STORED messages reception!");
 					e.printStackTrace();
@@ -207,17 +207,17 @@ public class Peer implements OpMethods {
 					e.printStackTrace();
 				}
 			}
-			
+
 			int stored_msgs = getStoredMessages(key);
-			
+
 			if(attemp_no == 5) {				
 				file_chunk_list.put(fileId + "_" + chunkNo,  "B_" + filepath + "_" + repDeg + "_" + stored_msgs);
 				System.out.println("BACKUP -> Peer " + server_id + " has put " + "<" + fileId + "_" + chunkNo + "," + 'B' + "_" + filepath + "_" +  repDeg + "_" + stored_msgs + ">");
-				
+
 				attemp_no = 0;
-				
+
 				System.out.println("Couldn't achieve the desired replication degree");
-				
+
 			}
 		}
 
@@ -271,25 +271,62 @@ public class Peer implements OpMethods {
 		System.out.println("RECLAIM");
 	};
 
+	@SuppressWarnings("serial")
 	public void state() {
-		/*
-			This operation allows to observe the service state. In response to such a request, the peer shall send to the client the following information:
+		ConcurrentHashMap<String, String> test_hashmap = new ConcurrentHashMap<String, String>();
+		test_hashmap.put("fileId1_1", "B_fileId1path_2_2");
+		test_hashmap.put("fileId1_2", "B_fileId1path_2_2");
+		test_hashmap.put("fileId3_1", "B_fileId3path_2_2");
+		test_hashmap.put("fileId3_2", "B_fileId3path_2_2");
+		test_hashmap.put("fileId2_1", "S_1024_2_2");
+		test_hashmap.put("fileId2_2", "S_768_2_2");
 
-		    For each file whose backup it has initiated:
-		        The file pathname
-		        The backup service id of the file
-		        The desired replication degree
-		        For each chunk of the file:
-		            Its id
-		            Its perceived replication degree
-		    For each chunk it stores:
-		        Its id
-		        Its size (in KBytes)
-		        Its perceived replication degree
-		    The peer's storage capacity, i.e. the maximum amount of disk space that can be used to store chunks, and the amount of storage (both in KBytes) used to backup the chunks.
-		*/
+		HashMap<String, ArrayList<String>> backups = new HashMap<String, ArrayList<String>>();
+		ArrayList<String> stores = new ArrayList<String>();
+	
+		for (Entry<String, String> entry : test_hashmap.entrySet()) {
+			String key = entry.getKey().toString();
+			String[] key_args = key.split("_");
 
-		System.out.println("STATE");
+			String value = entry.getValue();
+			String[] value_args = value.split("_");
+
+			String record_type = value_args[0];
+
+			switch(record_type) {
+			case "B":
+				String backups_key = "File Pathname = " + value_args[1] + " | File ID = " + key_args[0] + " | Desired Replication Degree = " + value_args[2];
+				if(!backups.containsKey(backups_key)) {
+					backups.put(backups_key, new ArrayList<String>(){{
+						   add("Chunk No = " + key_args[1] + " | Perceived Replication Degree = " + value_args[3]);
+						}});
+				}
+				else {
+					ArrayList<String> backups_values = backups.get(backups_key);
+					backups_values.add("Chunk No = " + key_args[1] + " | Perceived Replication Degree = " + value_args[3]);
+					backups.put(backups_key, backups_values);
+				}
+				break;
+			case "S":
+				stores.add("File ID = " + key_args[0] + " | Chunk No = " + key_args[1] + " | Size = " + value_args[1] + " | Perceived Replication Degree = " + value_args[3] + "\n");
+				break;
+			}
+		}
+
+		System.out.println("BACKUPS:\n");
+		for (Entry<String, ArrayList<String>> entry : backups.entrySet()) {
+		    System.out.println(entry.getKey());
+		    ArrayList<String> values = entry.getValue();
+		    
+		    for (String backup : values) System.out.println(backup);
+		    System.out.println();
+		}
+
+		System.out.println("STORES:\n");
+		for (String store : stores) System.out.println(store);
+
+
+		// TODO: Add the peer's storage capacity, i.e. the maximum amount of disk space that can be used to store chunks, and the amount of storage (both in KBytes) used to backup the chunks.
 	};
 
 
@@ -351,28 +388,28 @@ public class Peer implements OpMethods {
 
 	private void resetStoredMessages(String key) {
 		String value = file_chunk_list.get(key);
-		
+
 		String[] value_args = value.split("_");
-		
+
 		Integer real_replication_degree = Integer.parseInt(value_args[3]);
 		real_replication_degree = 0;
-		
+
 		String new_value = "";
-		
+
 		for (int arg_i = 0; arg_i < value_args.length - 1; arg_i++) {
 			new_value += value_args[arg_i] + "_";
 		}
-		
+
 		new_value += real_replication_degree;
-		
+
 		file_chunk_list.put(key, new_value);
 	}
 
 	private int getStoredMessages(String key) {
 		String value = file_chunk_list.get(key);
-		
+
 		String[] value_args = value.split("_");
-		
+
 		return Integer.parseInt(value_args[3]);
 	}
 }
