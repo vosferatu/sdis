@@ -1,0 +1,7 @@
+As we discussed before, many programs, particularly ones from the GNU Project,
+support both short and long command line options.
+For example, to display a help message for many of these programs,
+you may use either the "-h" option or the longer "--help" option.
+Long option names are typically preceded by a double dash. 
+We will adopt this convention for our scripts.
+
