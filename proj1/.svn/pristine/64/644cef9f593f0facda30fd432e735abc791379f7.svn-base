@@ -1,0 +1,209 @@
+package communication;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+import files.Chunk;
+import protocols.*;
+import server.Peer;
+
+public class Mailman implements Runnable {
+
+    public static final byte CR = 0xD;
+    public static final byte LF = 0xA;
+    public static final String CRLF = "\r\n";
+
+
+    public static final String PUTCHUNK = "PUTCHUNK";
+    public static final String GETCHUNK = "GETCHUNK";
+    public static final String CHUNK = "CHUNK";
+    public static final String STORED = "STORED";
+    public static final String DELETE = "DELETE";
+    public static final String REMOVED = "REMOVED";
+
+    private byte[] msg;
+    private byte[] body;
+    private int version;
+    private int senderId;
+    private String fileId;
+    private String msgType;
+    private int chunkNo;
+    private int repDegree;
+
+    public Mailman(byte[] msg) {
+        this.msg = msg;
+    }
+
+    public void run() {
+        String message = new String(this.msg, 0, this.msg.length);
+        String type = message.trim().split(" ")[0];
+
+        switch (type) {
+            case STORED:
+                stored();
+                break;
+            case GETCHUNK:
+                getChunk();
+                break;
+            case DELETE:
+                delete();
+                break;
+            case REMOVED:
+                removed();
+                break;
+            case PUTCHUNK:
+                putChunk();
+                break;
+            case CHUNK:
+                chunk();
+                break;
+        }
+    }
+
+    public void setup () {
+        int i = 0;
+        for (; i < this.msg.length-4; i++) {
+            if (this.msg[i] == CR && this.msg[i+1] == LF && this.msg[i+2] == CR && this.msg[i+3] == LF) {
+                break;
+            }
+        }
+
+        byte[] body = Arrays.copyOfRange(this.msg, i + 4, this.msg.length);
+        this.body = body;
+
+        byte[] header = Arrays.copyOfRange(this.msg, 0, i);
+
+        String head = new String(header);
+
+        String[] headerList = head.trim().split(" ");
+
+        version = Integer.parseInt(headerList[1].trim());
+        fileId = headerList[3].trim();
+        senderId = Integer.parseInt(headerList[2].trim());
+
+        String message = new String(msg, 0, msg.length);
+        String[] messageArgs = message.trim().split(" ");
+        msgType = messageArgs[0];
+    	System.out.println("messageType: " + msgType + " senderId: "+ senderId);
+
+
+        switch (msgType) {
+            case STORED:
+                chunkNo = Integer.parseInt(headerList[4].trim());
+                break;
+            case GETCHUNK:
+                chunkNo = Integer.parseInt(headerList[4].trim());
+                break;
+            case REMOVED:
+                chunkNo = Integer.parseInt(headerList[4].trim());
+                break;
+            case PUTCHUNK:
+                chunkNo = Integer.parseInt(headerList[4].trim());
+                repDegree = Integer.parseInt(headerList[5].trim());
+                break;
+            case CHUNK:
+                chunkNo = Integer.parseInt(headerList[4].trim());
+                break;
+        }
+    }
+
+    private void saveChunksRestored(String fileId, int chunkNo) {
+
+    	try {
+            String name = Peer.getId() + "/" + fileId + "_" + chunkNo;
+
+            File f = new File(name);
+            if (!f.exists()) {
+                f.getParentFile().mkdirs();
+                f.createNewFile();
+            }
+
+            try (FileOutputStream fs = new FileOutputStream(name)) {
+                fs.write(this.body);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private synchronized void stored() {
+    	setup();
+
+        if (Peer.getId() != senderId) {
+            Peer.getDatabase().addEvent(fileId, chunkNo);
+            System.out.println("Received STORED " + version + " " + senderId + " " + fileId + " " + chunkNo);
+        }
+    }
+
+
+    private void delete() {
+    	setup();
+        if (Peer.getId() != senderId) {
+            Peer.getDatabase().deleteSavedChunks(fileId);
+            System.out.println("Received DELETE " + version + " " + senderId + " " + fileId);
+        }
+    }
+
+
+    private synchronized void putChunk() {
+    	setup();
+        String pair = fileId + "_" + chunkNo;
+        if (!Peer.getDatabase().getStoredEvents().containsKey(pair)) {
+            Peer.getDatabase().getStoredEvents().put(pair, 0);
+        }
+
+        if (Peer.getId() != senderId) {
+            System.out.println("Received PUTCHUNK " + version + " " + senderId + " " + fileId + " " + chunkNo + " " + repDegree);
+            Random random = new Random();
+
+            Peer.getPool().schedule(new Putchunk(version, fileId, chunkNo, repDegree, body), random.nextInt(401), TimeUnit.MILLISECONDS);
+        }
+    }
+
+
+    private void getChunk() {
+    	setup();
+        if (Peer.getId() != senderId) {
+            Random random = new Random();
+            System.out.println("Received GETCHUNK " + version + " " + senderId + " " + fileId + " " + chunkNo);
+
+            Peer.getPool().schedule(new Getchunk(fileId, chunkNo), random.nextInt(401), TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void chunk() {
+    	setup();
+
+        if (Peer.getId() != senderId) {
+            Chunk tmp = new Chunk(chunkNo, fileId, 0, 0);
+            Peer.getDatabase().getSustainedChunks().add(tmp);
+
+            if (!Peer.getDatabase().getSearchingChunks().isEmpty()) {
+                Peer.getDatabase().setSearchingChunk(fileId, chunkNo);
+                saveChunksRestored(fileId, chunkNo);
+            }
+            System.out.println("Received CHUNK " + version + " " + senderId + " " + fileId + " " + chunkNo);
+        }
+    }
+
+    private void removed() {
+    	setup();
+        if (Peer.getId() != senderId) {
+            Random random = new Random();
+
+            Peer.getDatabase().subStoredEvents(fileId, chunkNo);
+            System.out.println("Received REMOVED " + version + " " + senderId + " " + fileId + " " + chunkNo);
+
+            Peer.getPool().schedule(new Removed(fileId, chunkNo), random.nextInt(401), TimeUnit.MILLISECONDS);
+        }
+    }
+
+}
